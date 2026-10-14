@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>光之战士：怪兽来袭 3D</title>
+<style>
+:root{--cyan:#62f4ff;--red:#ff4b59;--panel:rgba(5,14,32,.78)}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050b18;color:#fff;font-family:system-ui,-apple-system,"Microsoft YaHei",sans-serif;touch-action:none}
+#game{position:fixed;inset:0}canvas{display:block;width:100%;height:100%}
+#hud{position:fixed;inset:0;pointer-events:none;padding:14px;display:flex;flex-direction:column;justify-content:space-between;text-shadow:0 2px 5px #000}
+.top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.fighter{width:min(38vw,340px);background:var(--panel);border:1px solid #67e9ff80;border-radius:12px;padding:9px 11px;backdrop-filter:blur(6px)}.fighter.enemy{border-color:#ff536b80;text-align:right}
+.name{font-weight:900;font-size:clamp(12px,2.3vw,18px);letter-spacing:1px;margin-bottom:6px}.bar{height:12px;background:#1b263a;border-radius:20px;overflow:hidden;border:1px solid #ffffff35}.fill{height:100%;width:100%;transition:width .15s linear}.hp{background:linear-gradient(90deg,#f22f53,#ff9e61)}.playerhp{background:linear-gradient(90deg,#08b8d9,#7bffed)}.energy{height:5px;background:#1b263a;border-radius:10px;margin-top:5px;overflow:hidden}.energy .fill{background:linear-gradient(90deg,#537cff,#83f7ff)}
+#centerInfo{position:absolute;top:18%;left:50%;transform:translateX(-50%);text-align:center;min-width:150px}.timer{font-size:clamp(24px,5vw,42px);font-weight:1000;color:#fff;text-shadow:0 0 14px #58dfff}.round{font-size:12px;letter-spacing:4px;color:#b8eaff}
+#message{font-size:clamp(20px,5vw,44px);font-weight:1000;color:#fff;text-shadow:0 0 18px #38dfff;letter-spacing:2px}
+#hint{position:absolute;left:50%;top:39%;transform:translate(-50%,-50%);font-size:13px;color:#d3e9ff;background:#07162dc9;padding:8px 12px;border-radius:10px;text-align:center;max-width:90vw}
+#bottom{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;pointer-events:none}.controls{pointer-events:auto;display:flex;gap:8px;align-items:flex-end}.movegrid{display:grid;grid-template-columns:repeat(3,48px);grid-template-rows:repeat(2,48px);gap:4px}.btn{border:1px solid #a4efff88;background:linear-gradient(145deg,#15395fdd,#071329ee);color:#fff;border-radius:13px;min-width:48px;height:48px;font-weight:800;font-size:13px;box-shadow:0 4px 12px #0008;user-select:none;-webkit-user-select:none;touch-action:none}.btn:active,.btn.active{background:#1c8dc4;border-color:#c7fbff;transform:scale(.96)}.actions{display:grid;grid-template-columns:repeat(2,58px);gap:6px}.actions .btn{height:52px;min-width:58px;font-size:12px}.special{background:linear-gradient(145deg,#a22c49ee,#3d1025ee);border-color:#ff9cac}.beam{background:linear-gradient(145deg,#087fbd,#13336f);border-color:#7feaff}
+#startScreen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 40%,#193d69b8,#030713ef 70%);z-index:5;padding:20px}
+.card{width:min(520px,94vw);padding:26px 22px;border:1px solid #78eaff77;border-radius:22px;background:linear-gradient(150deg,#0a1b32f2,#070c1bf5);box-shadow:0 0 60px #0878a544;text-align:center}.logo{font-weight:1000;font-size:clamp(26px,7vw,44px);line-height:1.15;letter-spacing:2px;background:linear-gradient(90deg,#fff,#7af1ff,#ff6b7c);color:transparent;background-clip:text}.sub{color:#bdd8ee;font-size:13px;line-height:1.7;margin:14px 0 20px}.start{height:52px;width:100%;border:0;border-radius:14px;background:linear-gradient(90deg,#00a6d9,#3c6eff);color:white;font-size:17px;font-weight:900;letter-spacing:2px}.small{font-size:11px;color:#91a9c1;margin-top:12px;line-height:1.6}
+#pause{position:fixed;right:14px;top:120px;z-index:3;pointer-events:auto;width:42px;height:42px;border-radius:50%;border:1px solid #ffffff77;background:#07162dcc;color:white;font-weight:900}
+#toast{position:fixed;left:50%;top:55%;transform:translate(-50%,-50%);font-size:22px;font-weight:900;color:white;text-shadow:0 0 14px #3ef4ff;pointer-events:none;opacity:0;transition:opacity .15s}
+@media(min-width:850px){.btn{width:58px;height:54px}.movegrid{grid-template-columns:repeat(3,58px);grid-template-rows:repeat(2,54px)}.actions{grid-template-columns:repeat(2,70px)}.actions .btn{min-width:70px;height:54px}}
+@media(max-height:500px){#hud{padding:8px}.fighter{padding:5px 8px}.bar{height:9px}.energy{height:4px}.btn{height:40px}.movegrid{grid-template-rows:repeat(2,40px)}.actions .btn{height:42px}#centerInfo{top:13%}#hint{top:35%}}
+</style>
+</head>
+<body>
+<div id="game"></div>
+<div id="hud">
+  <div class="top">
+    <div class="fighter"><div class="name">光之战士 <span style="color:#79efff">PLAYER</span></div><div class="bar"><div id="pHp" class="fill playerhp"></div></div><div class="energy"><div id="pEnergy" class="fill" style="width:100%"></div></div></div>
+    <div class="fighter enemy"><div class="name">熔岩巨兽 <span style="color:#ff7a8b">CPU</span></div><div class="bar"><div id="eHp" class="fill hp"></div></div><div style="font-size:10px;color:#ffb6bf;margin-top:4px">MONSTER UNIT</div></div>
+  </div>
+  <div id="centerInfo"><div class="round">ULTRA BATTLE · ROUND 01</div><div class="timer" id="timer">99</div><div id="message">READY</div></div>
+  <div id="hint">电脑：WASD 移动 · J 拳击 · K 踢击 · L 必杀光线 · 空格闪避<br>手机：左侧移动，右侧攻击</div>
+  <div id="bottom">
+    <div class="controls">
+      <div class="movegrid">
+        <div></div><button class="btn" data-key="w">▲</button><div></div>
+        <button class="btn" data-key="a">◀</button><button class="btn" data-key="s">▼</button><button class="btn" data-key="d">▶</button>
+      </div>
+    </div>
+    <div class="controls"><div class="actions">
+      <button class="btn" data-action="punch">拳击<br>J</button><button class="btn" data-action="kick">踢击<br>K</button>
+      <button class="btn" data-action="dodge">闪避<br>SPACE</button><button class="btn special beam" data-action="beam">必杀光线<br>L</button>
+    </div></div>
+  </div>
+</div>
+<button id="pause" aria-label="暂停">Ⅱ</button><div id="toast"></div>
+<div id="startScreen"><div class="card"><div class="logo">光之战士<br>怪兽来袭</div><div class="sub">原创 3D 巨人格斗游戏<br>近身连击 · 闪避反击 · 能量光线 · 怪兽 AI<br>支持电脑键盘与手机触控</div><button class="start" id="startBtn">进入战场</button><div class="small">本作品为原创风格演示，不含官方奥特曼游戏模型或素材。<br>首次加载需要联网获取 Three.js 图形库。</div></div></div>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js';
+
+const host=document.querySelector('#game');
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0x081426); scene.fog=new THREE.Fog(0x081426,28,100);
+const camera=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.1,180);
+camera.position.set(0,5.8,14); camera.lookAt(0,2.4,0);
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.7)); renderer.setSize(innerWidth,innerHeight);
+renderer.outputColorSpace=THREE.SRGBColorSpace; renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.15;
+host.appendChild(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0x9acbff,0x20121d,2.0));
+const keyLight=new THREE.DirectionalLight(0xe3f4ff,3.1);keyLight.position.set(-5,12,8);scene.add(keyLight);
+const rim=new THREE.PointLight(0x167eff,24,35);rim.position.set(3,6,-5);scene.add(rim);
+const redLight=new THREE.PointLight(0xff3d43,18,24);redLight.position.set(-5,4,1);scene.add(redLight);
+const mat=(color,metalness=.25,roughness=.38,emissive=0x000000,intensity=0)=>new THREE.MeshStandardMaterial({color,metalness,roughness,emissive,emissiveIntensity:intensity});
+const silver=mat(0xbfcbd8,.75,.25), red=mat(0xb92338,.45,.28), dark=mat(0x172338,.65,.3), blue=mat(0x45dcff,.35,.18,0x18cfff,2.5), gold=mat(0xffc76b,.6,.25,0x9a4e10,.6), monsterSkin=mat(0x403c49,.45,.52), magma=mat(0xff4a1c,.25,.3,0xd92908,1.5);
+const floor= new THREE.Mesh(new THREE.PlaneGeometry(180,180),mat(0x111d2a,.15,.8));floor.rotation.x=-Math.PI/2;floor.position.y=-.08;scene.add(floor);
+const arena=new THREE.Group();scene.add(arena);
+const ringMat=mat(0x2d6885,.4,.3,0x0b4c70,.8);
+for(let r=5;r<=10;r+=5){const ring=new THREE.Mesh(new THREE.TorusGeometry(r,.035,8,100),ringMat);ring.rotation.x=Math.PI/2;ring.position.y=.01;arena.add(ring)}
+for(let i=0;i<24;i++){const a=i/24*Math.PI*2;const h=1.5+Math.random()*6;const b=new THREE.Mesh(new THREE.BoxGeometry(.7+Math.random()*1.4,h,.7+Math.random()),mat(i%3?0x1a2a3d:0x273449,.2,.85));b.position.set(Math.cos(a)*(13+Math.random()*9),h/2-0.05,Math.sin(a)*(13+Math.random()*9)-3;b.rotation.y=Math.random();scene.add(b);if(i%4===0){const light=new THREE.PointLight(0x2487ff,2,7);light.position.set(b.position.x,h*.7,b.position.z);scene.add(light)}}
+function makeFighter(isPlayer=true){
+ const root=new THREE.Group();scene.add(root);
+ const body=new THREE.Group();root.add(body);
+ const add=(geo,material,parent,pos,scale,rot)=>{const m=new THREE.Mesh(geo,material);m.position.set(...pos);m.scale.set(...scale);if(rot)m.rotation.set(...rot);m.castShadow=false;m.receiveShadow=true;parent.add(m);return m};
+ const sph=(p,s,m,par=body)=>add(new THREE.SphereGeometry(1,16,12),m,par,p,s);
+ const cyl=(p,s,m,par=body,radial=12)=>add(new THREE.CylinderGeometry(s[0],s[1],s[2],radial),m,par,p,[1,1,1]);
+ // legs and articulated limbs
+ const limbs={};
+ for(const side of [-1,1]){
+   const hip=new THREE.Group();hip.position.set(side*.42,1.55,0);body.add(hip);limbs['leg'+side]=hip;
+   sph([0,-.27,0],[.29,.48,.31],isPlayer?silver:monsterSkin,hip);
+   add(new THREE.CylinderGeometry(.19,.25,.66,12),isPlayer?silver:monsterSkin,hip,[0,-.72,0],[1,1,1]);
+   sph([0,-1.08,.08],[.28,.18,.42],isPlayer?red:monsterSkin,hip);
+   const arm=new THREE.Group();arm.position.set(side*.72,2.55,0);body.add(arm);limbs['arm'+side]=arm;
+   sph([0,-.28,0],isPlayer?[.27,.4,.28]:[.36,.48,.34],isPlayer?red:monsterSkin,arm);
+   add(new THREE.CylinderGeometry(.16,.23,.55,12),isPlayer?silver:monsterSkin,arm,[0,-.68,.02],[1,1,1]);
+   sph([0,-1.02,.1],[.21,.22,.22],isPlayer?dark:magma,arm);
+ }
+ // torso, chest armor, shoulders
+ sph([0,2.05,0],[.63,.83,.36],isPlayer?silver:monsterSkin);
+ sph([0,2.45,.025],[.67,.45,.39],isPlayer?red:monsterSkin);
+ if(isPlayer){
+   sph([0,2.17,.36],[.18,.32,.075],blue);
+   // silver chest chevrons
+   for(const side of [-1,1]) add(new THREE.BoxGeometry(.12,.7,.08),silver,body,[side*.3,2.4,.36],[1,1,1],[0,0,side*-.3]);
+   sph([0,3.05,0],[.39,.43,.34],silver);
+   sph([-.13,3.12,.29],[.07,.07,.04],blue);sph([.13,3.12,.29],[.07,.07,.04],blue);
+   add(new THREE.ConeGeometry(.09,.38,8),gold,body,[-.22,3.43,0],[1,1,1],[0,0,.18]);
+   add(new THREE.ConeGeometry(.09,.38,8),gold,body,[.22,3.43,0],[1,1,1],[0,0,-.18]);
+   // waist armor
+   sph([0,1.43,0],[.49,.2,.31],red);
+ }else{
+   sph([0,3.04,0],[.52,.49,.44],monsterSkin);
+   for(let i=0;i<3;i++){add(new THREE.ConeGeometry(.16,.48,7),dark,body,[-.3+i*.3,3.45,-.05],[1,1,1],[0,0,(i-1)*-.25])}
+   for(let side of [-1,1]){add(new THREE.ConeGeometry(.19,.5,7),magma,body,[side*.45,2.7,.05],[1,1,1],[0,0,side*-.7]);sph([side*.17,3.1,.36],[.07,.07,.04],gold)}
+   for(let i=0;i<4;i++) sph([Math.sin(i*1.8)*.38,1.8+i*.22,-.28],[.13,.13,.1],magma);
+ }
+ root.userData={body,limbs,isPlayer};return root;
+}
+const player=makeFighter(true);player.position.set(-3,0,0);player.rotation.y=.35;
+const enemy=makeFighter(false);enemy.scale.set(1.18,1.18,1.18);enemy.position.set(3,0,-.5);enemy.rotation.y=-.3;
+function makeBeam(){const g=new THREE.Group();const core=new THREE.Mesh(new THREE.CylinderGeometry(.11,.2,1,12),new THREE.MeshBasicMaterial({color:0x8df7ff}));core.rotation.x=Math.PI/2;g.add(core);const aura=new THREE.Mesh(new THREE.CylinderGeometry(.28,.4,1,12,1,true),new THREE.MeshBasicMaterial({color:0x078dff,transparent:true,opacity:.45,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,depthWrite:false}));aura.rotation.x=Math.PI/2;g.add(aura);g.visible=false;scene.add(g);return g}
+const beam=makeBeam();
+const sparks=[];
+function burst(pos,color=0x6eeeff,count=18){for(let i=0;i<count;i++){const mesh=new THREE.Mesh(new THREE.SphereGeometry(.045+Math.random()*.05,6,6),new THREE.MeshBasicMaterial({color,transparent:true}));mesh.position.copy(pos);scene.add(mesh);sparks.push({mesh,vel:new THREE.Vector3((Math.random()-.5)*6,Math.random()*5,(Math.random()-.5)*5),life:.45+Math.random()*.4})}}
+let pHp=100,eHp=100,energy=100,time=99,started=false,paused=false,ended=false,invuln=0,attackCooldown=0,enemyCooldown=1.2,beamTime=0,shake=0,combo=0,comboTimer=0;
+const keys={};const $=id=>document.getElementById(id);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function toast(t){$('toast').textContent=t;$('toast').style.opacity=1;setTimeout(()=>$('toast').style.opacity=0,700)}
+function hud(){$('pHp').style.width=pHp+'%';$('eHp').style.width=eHp+'%';$('pEnergy').style.width=energy+'%';$('timer').textContent=Math.max(0,Math.ceil(time));}
+function faceTarget(a,b){a.rotation.y=Math.atan2(b.position.x-a.position.x,b.position.z-a.position.z)}
+function damageEnemy(amount){if(ended)return;eHp=clamp(eHp-amount,0,100);combo++;comboTimer=1.5;burst(enemy.position.clone().add(new THREE.Vector3(0,2,0)),0xffb06a,10);enemy.userData.body.rotation.x=-.13;shake=.12;if(eHp<=0)finish(true);hud()}
+function damagePlayer(amount){if(ended||invuln>0)return;pHp=clamp(pHp-amount,0,100);invuln=.55;burst(player.position.clone().add(new THREE.Vector3(0,2,0)),0xff5267,12);shake=.18;if(pHp<=0)finish(false);hud()}
+function finish(win){ended=true;$('message').textContent=win?'VICTORY':'DEFEAT';$('hint').textContent=win?'怪兽已被击退！点击“重新挑战”再次战斗。':'英雄能量耗尽，点击“重新挑战”再战一次。';$('hint').style.display='block';$('startBtn').textContent='重新挑战';$('startScreen').style.display='flex';document.querySelector('.sub').innerHTML=win?'战斗胜利！你的光之力量守护了城市。':'战斗结束。调整闪避时机，抓住怪兽攻击后的空档。';}
+function action(type){
+ if(!started||paused||ended)return;
+ if(type==='punch'||type==='kick'){
+   if(attackCooldown>0)return;attackCooldown=type==='punch'?.32:.62;
+   const dist=player.position.distanceTo(enemy.position);faceTarget(player,enemy);
+   const arm=player.userData.limbs['arm1'];arm.rotation.x=-1.2;setTimeout(()=>{if(arm)arm.rotation.x=0},150);
+   if(dist<(type==='punch'?2.65:3.05)){damageEnemy(type==='punch'?7:12);toast(combo>1?`连击 x${combo}`:'命中！')}else toast('距离太远');
+ }else if(type==='dodge'){invuln=.7;player.position.x+=Math.sign(player.position.x-enemy.position.x||-1)*.65;player.position.x=clamp(player.position.x,-7,7);toast('闪避！')}
+ else if(type==='beam'){
+   if(energy<35){toast('能量不足！');return}if(attackCooldown>0)return;
+   energy-=35;attackCooldown=1.1;beamTime=.45;faceTarget(player,enemy);
+   const start=player.position.clone().add(new THREE.Vector3(0,2.3,0));const end=enemy.position.clone().add(new THREE.Vector3(0,2,0));
+   beam.position.copy(start).add(end).multiplyScalar(.5);beam.position.z+=.1;beam.lookAt(end);beam.scale.set(1,start.distanceTo(end),1);beam.visible=true;
+   burst(start,0x7df8ff,24);setTimeout(()=>{beam.visible=false;if(player.position.distanceTo(enemy.position)<9)damageEnemy(25);else toast('光线未命中')},220);toast('光线必杀！');hud();
+ }
+}
+function startGame(){pHp=100;eHp=100;energy=100;time=99;started=true;paused=false;ended=false;invuln=0;attackCooldown=0;enemyCooldown=1.2;combo=0;player.position.set(-3,0,0);enemy.position.set(3,0,-.5);$('startScreen').style.display='none';$('hint').style.display='block';$('hint').innerHTML='WASD 移动 · J 拳击 · K 踢击 · L 必杀光线 · 空格闪避';$('message').textContent='FIGHT';hud()}
+$('startBtn').addEventListener('click',startGame);
+$('pause').addEventListener('click',()=>{if(!started||ended)return;paused=!paused;$('message').textContent=paused?'PAUSED':'FIGHT';$('pause').textContent=paused?'▶':'Ⅱ'});
+window.addEventListener('keydown',e=>{const k=e.key.toLowerCase();keys[k]=true;if([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(k))e.preventDefault();if(e.repeat)return;if(k==='j')action('punch');if(k==='k')action('kick');if(k==='l')action('beam');if(k===' ')action('dodge');});
+window.addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+document.querySelectorAll('[data-key]').forEach(b=>{
+ const k=b.dataset.key;
+ const down=e=>{e.preventDefault();keys[k]=true;b.classList.add('active')},up=e=>{e.preventDefault();keys[k]=false;b.classList.remove('active')};
+ b.addEventListener('pointerdown',down);['pointerup','pointercancel','pointerleave'].forEach(ev=>b.addEventListener(ev,up));
+});
+document.querySelectorAll('[data-action]').forEach(b=>b.addEventListener('pointerdown',e=>{e.preventDefault();action(b.dataset.action)}));
+window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.7))});
+let last=performance.now(),acc=0;
+renderer.setAnimationLoop(now=>{
+ const dt=Math.min((now-last)/1000,.04);last=now;
+ if(started&&!paused&&!ended){
+   time-=dt;if(time<=0){time=0;finish(pHp>=eHp)} 
+   attackCooldown=Math.max(0,attackCooldown-dt);enemyCooldown-=dt;invuln=Math.max(0,invuln-dt);comboTimer-=dt;if(comboTimer<=0)combo=0;
+   let dx=0,dz=0;if(keys.a||keys.arrowleft)dx-=1;if(keys.d||keys.arrowright)dx+=1;if(keys.w||keys.arrowup)dz-=1;if(keys.s||keys.arrowdown)dz+=1;
+   const moving=dx!==0||dz!==0;if(moving){const len=Math.hypot(dx,dz);player.position.x+=dx/len*dt*4.1;player.position.z+=dz/len*dt*3.2;player.position.x=clamp(player.position.x,-8,8);player.position.z=clamp(player.position.z,-4,4);faceTarget(player,enemy)}
+   else faceTarget(player,enemy);
+   player.userData.body.position.y=moving?Math.abs(Math.sin(now*.012))*.06:Math.sin(now*.002)*.025;
+   player.userData.limbs['arm-1'].rotation.x=moving?Math.sin(now*.01)*.18:0;player.userData.limbs['arm1'].rotation.x=moving?-Math.sin(now*.01)*.18:0;
+   const dist=player.position.distanceTo(enemy.position);faceTarget(enemy,player);
+   if(dist>2.25){enemy.position.x+=(player.position.x-enemy.position.x)/dist*dt*1.45;enemy.position.z+=(player.position.z-enemy.position.z)/dist*dt*.8}
+   enemy.position.x=clamp(enemy.position.x,-8,8);enemy.position.z=clamp(enemy.position.z,-4,4);
+   enemy.userData.body.position.y=Math.sin(now*.003)*.035;
+   if(enemyCooldown<=0&&dist<3.2){enemyCooldown=1.15+Math.random()*.8;const arm=enemy.userData.limbs['arm-1'];arm.rotation.x=-1;setTimeout(()=>{arm.rotation.x=0},230);if(Math.random()<.22&&energy<100)energy=clamp(energy+7,0,100);damagePlayer(7+Math.random()*4)}
+   else if(enemyCooldown<=0){enemyCooldown=.45}
+   if(energy<100)energy=clamp(energy+dt*3,0,100);
+   if(beamTime>0){beamTime-=dt;if(beamTime<=0)beam.visible=false}
+   if(shake>0)shake=Math.max(0,shake-dt);
+   hud();
+ }
+ for(let i=sparks.length-1;i>=0;i--){const s=sparks[i];s.life-=dt;s.mesh.position.addScaledVector(s.vel,dt);s.vel.y-=9*dt;s.mesh.material.opacity=clamp(s.life,0,1);if(s.life<=0){scene.remove(s.mesh);s.mesh.geometry.dispose();s.mesh.material.dispose();sparks.splice(i,1)}}
+ const mid=player.position.clone().add(enemy.position).multiplyScalar(.5);
+ const desired=new THREE.Vector3(mid.x*.22,5.3,13.5+Math.abs(player.position.x-enemy.position.x)*.18);
+ camera.position.lerp(desired,.035);camera.lookAt(mid.x*.25,2.0,mid.z-.3);
+ if(shake>0){camera.position.x+=(Math.random()-.5)*shake;camera.position.y+=(Math.random()-.5)*shake}
+ // energy flicker and atmosphere
+ blue.emissiveIntensity=2.1+Math.sin(now*.008)*.45;
+ renderer.render(scene,camera);
+});
+hud();
+</script>
+</body>
+</html>
